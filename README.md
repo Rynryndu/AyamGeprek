@@ -64,9 +64,20 @@ To try it out, click **Import file** and choose `sample-tour.json`.
 }
 ```
 
+## Default tour
+
+First-time visitors see a ready-made **"Like it Formosa" Kaohsiung food tour**
+(Yancheng District) loaded automatically. Once you edit anything, your own
+version is saved in the browser and shown instead. The same data also lives in
+`kaohsiung-food-tour.json` if you want to re-import or tweak it.
+
+> Stop coordinates are approximate starting points — drag any marker to the
+> exact spot and re-export to refine them.
+
 ## Files
 
 - `index.html` — markup and CDN includes
 - `styles.css` — styling
-- `app.js` — all application logic
-- `sample-tour.json` / `sample-tour.csv` — example data to import
+- `app.js` — all application logic (includes the built-in default tour)
+- `kaohsiung-food-tour.json` — the default Kaohsiung food tour
+- `sample-tour.json` / `sample-tour.csv` — generic example data to import

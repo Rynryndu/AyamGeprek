@@ -5,6 +5,66 @@
 
   const STORAGE_KEY = "tour-map-studio:v1";
 
+  // Default tour shown to first-time visitors: the "Like it Formosa"
+  // Kaohsiung food tour through the historic Yancheng District.
+  // NOTE: coordinates are approximate starting points — drag any marker to
+  // the exact spot and re-export to refine them.
+  const DEFAULT_TOUR = {
+    title: "Kaohsiung Food Tour — Like it Formosa",
+    description:
+      "A 2.5-hour guided walking food tour through Kaohsiung's historic Yancheng District. Five tasting stops — from a 70-year milkfish eatery to a Michelin Bib Gourmand smoked duck and a beloved shaved-ice institution. Starts 10:30 AM at Yanchengpu MRT.",
+    stops: [
+      {
+        name: "Yanchengpu MRT Station — Exit 1",
+        description:
+          "Meeting point (10 min). Check-in and introductions. \"Formosa\" is another name for Taiwan — Like it Formosa hopes visitors fall in love with Taiwan through its guided tours. Today: a walking journey tasting authentic Kaohsiung foods and the stories behind them.",
+        imageUrl: "",
+        lat: 22.6259,
+        lng: 120.2866,
+      },
+      {
+        name: "Yama Ichi (山壹旗魚食製所)",
+        description:
+          "Stop 1 · 30 min. A 70-year, family-run eatery in Yancheng First Public Market, specializing in milkfish snacks and tempura — a fish stall by morning, a fried-snack diner by afternoon. Deboning, pounding, seasoning and frying are all done by hand. Tasting: a tempura box with 3 kinds of fishcake (NT$88/box, NT$44 pp).",
+        imageUrl: "",
+        lat: 22.6242,
+        lng: 120.285,
+      },
+      {
+        name: "Duck Zhen (鴨肉珍)",
+        description:
+          "Stop 2 · 30 min. One of Kaohsiung's most iconic smoked-duck restaurants, running 60+ years and listed in the Michelin Guide (Bib Gourmand). Famous for tender, aromatic smoked duck with rice or vermicelli; humble, rustic and beloved — locals queue early. Tasting: a bowl of duck vermicelli (NT$60 pp).",
+        imageUrl: "",
+        lat: 22.623,
+        lng: 120.2853,
+      },
+      {
+        name: "Xiangming Tea Shop (香茗茶行)",
+        description:
+          "Stop 3 · 20 min. A historic tea house founded in 1946, set inside the Japanese-era \"Ginza Arcade\" with wooden window frames and old tea jars. It evolved from delivering loose tea by bicycle to modern ready-to-drink teas and soft serve. Tasting: choice of Oolong Milk Tea or Fresh Milk Tea (NT$70 pp).",
+        imageUrl: "",
+        lat: 22.6245,
+        lng: 120.286,
+      },
+      {
+        name: "DaGouDing Milkfish Rice-Noodle Soup (大溝頂虱目魚米粉湯)",
+        description:
+          "Stop 4 · 30 min. Hidden in a narrow alley of Yancheng First Public Market, this 60+ year spot is named for the \"covered ditch\" (DaGouDing). Milkfish — southern Taiwan's \"national fish\" — stars in its fish-belly soup with house-made fish paste and rice noodles. Tasting: fish-belly paste soup (one bowl per two) plus minced pork rice each (NT$83 pp).",
+        imageUrl: "",
+        lat: 22.6238,
+        lng: 120.2849,
+      },
+      {
+        name: "Po Po Ice (高雄婆婆冰)",
+        description:
+          "Stop 5 · 30 min. A 70+ year shaved-ice institution dating to the Japanese colonial era. Founded by Mrs. Cai Zhaogu — \"Po Po\" (grandmother) — who built the shop after being widowed at 36; her red kerchief became the brand's symbol. Tasting: choice of three shaved ices — signature plum, taro with red beans, or super-fruit combo with ice cream (NT$125 pp).",
+        imageUrl: "",
+        lat: 22.6283,
+        lng: 120.2859,
+      },
+    ],
+  };
+
   // ---- State ----------------------------------------------------------------
   /** @type {{title:string, description:string, stops:Stop[]}} */
   let tour = { title: "", description: "", stops: [] };
@@ -54,7 +114,7 @@
   };
 
   // ---- Map ------------------------------------------------------------------
-  const map = L.map("map", { zoomControl: true }).setView([40.7589, -73.9851], 14);
+  const map = L.map("map", { zoomControl: true }).setView([22.625, 120.2858], 16);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -348,7 +408,8 @@
     } catch (e) {
       /* ignore */
     }
-    setTour(tour);
+    // First-time visitor: show the built-in Kaohsiung food tour.
+    setTour(DEFAULT_TOUR);
   }
 
   function setTour(data) {
