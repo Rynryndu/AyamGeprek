@@ -1,0 +1,34 @@
+{
+  "title": "Lower Manhattan Highlights",
+  "description": "A short walking tour through some iconic spots in downtown NYC.",
+  "stops": [
+    {
+      "name": "Charging Bull",
+      "description": "The famous bronze bull sculpture near Bowling Green.",
+      "imageUrl": "",
+      "lat": 40.705536,
+      "lng": -74.013382
+    },
+    {
+      "name": "Federal Hall",
+      "description": "Where George Washington took the first presidential oath of office.",
+      "imageUrl": "",
+      "lat": 40.707467,
+      "lng": -74.010172
+    },
+    {
+      "name": "Brooklyn Bridge Entrance",
+      "description": "Start of the pedestrian walkway across the East River.",
+      "imageUrl": "",
+      "lat": 40.711508,
+      "lng": -74.004997
+    },
+    {
+      "name": "City Hall Park",
+      "description": "Historic park surrounding New York City Hall.",
+      "imageUrl": "",
+      "lat": 40.712772,
+      "lng": -74.006058
+    }
+  ]
+}
