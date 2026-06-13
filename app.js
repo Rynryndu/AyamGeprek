@@ -71,6 +71,7 @@
   let addMode = false;
   let editingId = null;
   let preview = { active: false, index: 0 };
+  let graphic = false; // minimal "graphic" presentation style
 
   const markers = new Map(); // id -> Leaflet marker
   let routeLayer = null; // drawn polyline (street route or straight fallback)
@@ -100,6 +101,10 @@
     dirOverlay: $("directions-overlay"),
     dirBody: $("dir-body"),
     dirClose: $("dir-close"),
+    // map toolbar
+    tbFit: $("tb-fit"),
+    tbStyle: $("tb-style"),
+    tbFocus: $("tb-focus"),
     exportJson: $("export-json"),
     exportGpx: $("export-gpx"),
     importBtn: $("import-btn"),
@@ -151,6 +156,30 @@
   };
   baseLayers["English labels (Esri)"].addTo(map);
   L.control.layers(baseLayers, null, { position: "topright" }).addTo(map);
+
+  // Minimal "graphic" base map for a cleaner, poster-like presentation.
+  const graphicLayer = L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    {
+      maxZoom: 20,
+      subdomains: "abcd",
+      attribution: "&copy; OpenStreetMap, &copy; CARTO",
+    }
+  );
+  let activeBase = baseLayers["English labels (Esri)"];
+  map.on("baselayerchange", (e) => {
+    if (e.layer === graphicLayer) return;
+    activeBase = e.layer;
+    // Picking a base from the control exits graphic mode cleanly.
+    if (graphic) {
+      graphic = false;
+      el.tbStyle.classList.remove("active");
+      if (map.hasLayer(graphicLayer)) map.removeLayer(graphicLayer);
+      if (routeLayer && routeLegs) routeLayer.setStyle(routeStyle());
+    }
+  });
+
+  const appEl = $("app");
 
   map.on("click", (e) => {
     if (!addMode) return;
@@ -320,13 +349,7 @@
         return;
       }
       if (routeLayer) map.removeLayer(routeLayer);
-      routeLayer = L.polyline(res.latlngs, {
-        color: "#f97316",
-        weight: 5,
-        opacity: 0.9,
-        lineCap: "round",
-        lineJoin: "round",
-      }).addTo(map);
+      routeLayer = L.polyline(res.latlngs, routeStyle()).addTo(map);
       routeLegs = res.legs;
       updateRouteSummary();
       renderList();
@@ -494,6 +517,47 @@
     } else {
       map.fitBounds(tour.stops.map((s) => [s.lat, s.lng]), { padding: [60, 60] });
     }
+  }
+
+  // ---- Map toolbar (presentation) -------------------------------------------
+  function routeStyle() {
+    return graphic
+      ? { color: "#22d3ee", weight: 7, opacity: 0.95, lineCap: "round", lineJoin: "round" }
+      : { color: "#f97316", weight: 5, opacity: 0.9, lineCap: "round", lineJoin: "round" };
+  }
+
+  // Zoom the map to frame the whole created route.
+  function fitRoute() {
+    if (routeLayer && routeLayer.getBounds && routeLayer.getBounds().isValid()) {
+      map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+    } else {
+      fitToStops();
+    }
+  }
+
+  // Toggle the minimal "graphic" base map + bolder route.
+  function setGraphic(on) {
+    graphic = on;
+    el.tbStyle.classList.toggle("active", on);
+    if (on) {
+      if (map.hasLayer(activeBase)) map.removeLayer(activeBase);
+      graphicLayer.addTo(map).bringToBack();
+    } else {
+      if (map.hasLayer(graphicLayer)) map.removeLayer(graphicLayer);
+      activeBase.addTo(map).bringToBack();
+    }
+    if (routeLayer && routeLegs) routeLayer.setStyle(routeStyle());
+  }
+
+  // Focus mode: hide the editor sidebar to show only the map + route.
+  function setFocus(on) {
+    appEl.classList.toggle("focus-mode", on);
+    el.tbFocus.classList.toggle("active", on);
+    el.tbFocus.innerHTML = on ? "⛶ Exit focus" : "⛶ Focus";
+    setTimeout(() => {
+      map.invalidateSize();
+      fitRoute();
+    }, 220);
   }
 
   // ---- Add mode -------------------------------------------------------------
@@ -898,11 +962,16 @@
     if (e.target === el.dirOverlay) closeDirections();
   });
 
+  el.tbFit.addEventListener("click", fitRoute);
+  el.tbStyle.addEventListener("click", () => setGraphic(!graphic));
+  el.tbFocus.addEventListener("click", () => setFocus(!appEl.classList.contains("focus-mode")));
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (!el.overlay.classList.contains("hidden")) closeEditor();
       else if (!el.dirOverlay.classList.contains("hidden")) closeDirections();
       else if (preview.active) exitPreview();
+      else if (appEl.classList.contains("focus-mode")) setFocus(false);
       else if (addMode) setAddMode(false);
     }
     if (preview.active && el.overlay.classList.contains("hidden")) {

@@ -20,6 +20,9 @@ no sign-up.**
   distance and time between stops plus turn-by-turn **Walking directions**. Falls
   back to straight-line estimates if the service can't be reached.
 - **Import / Export** — read and write `.json`, `.csv`, and `.gpx` files.
+- **Map toolbar** — presentation controls overlaid on the map: **Fit route**
+  (frame the whole route), **Graphic** (a clean, minimal map style with a bolder
+  route), and **Focus** (hide the editor to show only the map + route).
 - **Preview mode** — play through the tour stop by stop (arrow keys work too).
 - **Share link** — copy a link that encodes the whole tour in the URL.
 - **Autosave** — your work is kept in the browser's local storage.
