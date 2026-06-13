@@ -115,10 +115,29 @@
 
   // ---- Map ------------------------------------------------------------------
   const map = L.map("map", { zoomControl: true }).setView([22.625, 120.2858], 16);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(map);
+
+  // Base maps. Default to a layer with English / romanized labels (Esri),
+  // and offer standard OpenStreetMap (local-language labels) as an option.
+  const baseLayers = {
+    "English labels (Esri)": L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+      {
+        maxZoom: 19,
+        attribution:
+          "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, and other contributors",
+      }
+    ),
+    "OpenStreetMap (local labels)": L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }
+    ),
+  };
+  baseLayers["English labels (Esri)"].addTo(map);
+  L.control.layers(baseLayers, null, { position: "topright" }).addTo(map);
 
   map.on("click", (e) => {
     if (!addMode) return;
