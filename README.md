@@ -13,8 +13,12 @@ no sign-up.**
 - **Interactive editing** — click *Add stop* and tap the map to drop numbered
   stops. Drag markers to fine-tune positions.
 - **Rich stops** — give each stop a name, description, and optional image URL.
-- **Ordered route** — stops are automatically connected in order with a dashed
-  route line; reorder them with the ▲ / ▼ buttons.
+- **Ordered route** — stops are automatically connected in order; reorder them
+  with the ▲ / ▼ buttons.
+- **Street-following walking route** — the route snaps to real streets via a free
+  public foot-routing service (OSRM/FOSSGIS, no API key), showing walking
+  distance and time between stops plus turn-by-turn **Walking directions**. Falls
+  back to straight-line estimates if the service can't be reached.
 - **Import / Export** — read and write `.json`, `.csv`, and `.gpx` files.
 - **Preview mode** — play through the tour stop by stop (arrow keys work too).
 - **Share link** — copy a link that encodes the whole tour in the URL.

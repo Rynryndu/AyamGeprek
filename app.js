@@ -73,8 +73,15 @@
   let preview = { active: false, index: 0 };
 
   const markers = new Map(); // id -> Leaflet marker
-  let routeLine = null;
+  let routeLayer = null; // drawn polyline (street route or straight fallback)
+  let routeLegs = null; // [{distance, duration, steps[], straight}] between consecutive stops
+  let routeKey = ""; // signature of current stop geometry, to avoid refetching
+  let routeReq = 0; // token to discard stale async routing responses
   let nextId = 1;
+
+  // Public foot-routing endpoint (OSRM, hosted by FOSSGIS — no API key).
+  const ROUTER_URL =
+    "https://routing.openstreetmap.de/routed-foot/route/v1/foot/";
 
   // ---- DOM ------------------------------------------------------------------
   const $ = (id) => document.getElementById(id);
@@ -87,6 +94,12 @@
     list: $("stop-list"),
     empty: $("empty-state"),
     count: $("stop-count"),
+    routeSummary: $("route-summary"),
+    directionsBtn: $("directions-btn"),
+    // directions modal
+    dirOverlay: $("directions-overlay"),
+    dirBody: $("dir-body"),
+    dirClose: $("dir-close"),
     exportJson: $("export-json"),
     exportGpx: $("export-gpx"),
     importBtn: $("import-btn"),
@@ -264,21 +277,154 @@
     });
   }
 
+  function stopsKey() {
+    return tour.stops.map((s) => s.id + ":" + s.lat + "," + s.lng).join("|");
+  }
+
   function renderRoute() {
+    const key = stopsKey();
+    // Geometry unchanged (e.g. re-render during preview) — keep current route.
+    if (key === routeKey && routeLayer) return;
+    routeKey = key;
+
+    if (routeLayer) {
+      map.removeLayer(routeLayer);
+      routeLayer = null;
+    }
+    routeLegs = null;
+
     const pts = tour.stops.map((s) => [s.lat, s.lng]);
-    if (routeLine) {
-      map.removeLayer(routeLine);
-      routeLine = null;
+    if (pts.length < 2) {
+      updateRouteSummary();
+      return;
     }
-    if (pts.length >= 2) {
-      routeLine = L.polyline(pts, {
-        color: "#3b82f6",
-        weight: 4,
-        opacity: 0.7,
-        dashArray: "1 8",
+
+    // Draw an immediate straight placeholder while the street route loads.
+    routeLayer = L.polyline(pts, {
+      color: "#94a3b8",
+      weight: 3,
+      opacity: 0.6,
+      dashArray: "1 8",
+      lineCap: "round",
+    }).addTo(map);
+    updateRouteSummary();
+
+    const myReq = ++routeReq;
+    fetchFootRoute(tour.stops).then((res) => {
+      if (myReq !== routeReq) return; // a newer request superseded this one
+      if (!res) {
+        // Routing unavailable — keep the straight line, show estimates.
+        routeLegs = straightLegs(tour.stops);
+        updateRouteSummary();
+        renderList();
+        return;
+      }
+      if (routeLayer) map.removeLayer(routeLayer);
+      routeLayer = L.polyline(res.latlngs, {
+        color: "#f97316",
+        weight: 5,
+        opacity: 0.9,
         lineCap: "round",
+        lineJoin: "round",
       }).addTo(map);
+      routeLegs = res.legs;
+      updateRouteSummary();
+      renderList();
+    });
+  }
+
+  // Query the public OSRM foot router; resolves to {latlngs, legs} or null.
+  function fetchFootRoute(stops) {
+    const coords = stops.map((s) => s.lng + "," + s.lat).join(";");
+    const url =
+      ROUTER_URL + coords + "?overview=full&geometries=geojson&steps=true";
+    return fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || data.code !== "Ok" || !data.routes || !data.routes[0]) {
+          return null;
+        }
+        const route = data.routes[0];
+        const latlngs = route.geometry.coordinates.map((c) => [c[1], c[0]]);
+        const legs = (route.legs || []).map((leg) => ({
+          distance: leg.distance,
+          duration: leg.duration,
+          steps: leg.steps || [],
+          straight: false,
+        }));
+        return { latlngs, legs };
+      })
+      .catch(() => null);
+  }
+
+  // Fallback: straight-line distance/time when routing can't be reached.
+  function straightLegs(stops) {
+    const legs = [];
+    for (let i = 0; i < stops.length - 1; i++) {
+      const d = haversine(stops[i], stops[i + 1]);
+      legs.push({ distance: d, duration: d / 1.35, steps: [], straight: true });
     }
+    return legs;
+  }
+
+  function haversine(a, b) {
+    const R = 6371000;
+    const toRad = (x) => (x * Math.PI) / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const h =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function fmtDist(m) {
+    if (!Number.isFinite(m)) return "";
+    return m >= 1000 ? (m / 1000).toFixed(m < 10000 ? 1 : 0) + " km" : Math.round(m) + " m";
+  }
+
+  function fmtDur(s) {
+    if (!Number.isFinite(s)) return "";
+    const min = Math.round(s / 60);
+    return min < 1 ? "<1 min" : min + " min";
+  }
+
+  function routeTotals() {
+    if (!routeLegs) return null;
+    return routeLegs.reduce(
+      (acc, l) => {
+        acc.distance += l.distance || 0;
+        acc.duration += l.duration || 0;
+        acc.straight = acc.straight || l.straight;
+        return acc;
+      },
+      { distance: 0, duration: 0, straight: false }
+    );
+  }
+
+  function updateRouteSummary() {
+    const n = tour.stops.length;
+    const showDir = n >= 2;
+    if (el.directionsBtn) el.directionsBtn.classList.toggle("hidden", !showDir);
+    if (!el.routeSummary) return;
+
+    if (n < 2) {
+      el.routeSummary.classList.add("hidden");
+      el.routeSummary.innerHTML = "";
+      return;
+    }
+    el.routeSummary.classList.remove("hidden");
+    if (!routeLegs) {
+      el.routeSummary.innerHTML = '<span class="spin">↻</span> Calculating walking route…';
+      return;
+    }
+    const t = routeTotals();
+    const note = t.straight ? ' <span class="muted">(straight-line estimate)</span>' : "";
+    el.routeSummary.innerHTML =
+      "🚶 <strong>" + fmtDist(t.distance) + "</strong> · <strong>" +
+      fmtDur(t.duration) + "</strong> total walking" + note;
   }
 
   function renderList() {
@@ -311,6 +457,25 @@
         });
       });
       el.list.appendChild(li);
+
+      // Walking connector to the next stop.
+      if (i < tour.stops.length - 1) {
+        const leg = routeLegs && routeLegs[i];
+        const conn = document.createElement("li");
+        conn.className = "leg-connector";
+        if (leg) {
+          conn.innerHTML =
+            '<span class="leg-line"></span>' +
+            '<button class="leg-info" data-leg="' + i + '" title="Show walking directions">' +
+            "🚶 " + fmtDur(leg.duration) + " · " + fmtDist(leg.distance) +
+            (leg.straight ? " · est." : "") +
+            "</button>";
+          conn.querySelector(".leg-info").addEventListener("click", () => openDirections(i));
+        } else {
+          conn.innerHTML = '<span class="leg-line"></span><span class="leg-info muted">🚶 …</span>';
+        }
+        el.list.appendChild(conn);
+      }
     });
   }
 
@@ -375,6 +540,86 @@
     closeEditor();
     render();
     save();
+  }
+
+  // ---- Walking directions ---------------------------------------------------
+  function openDirections(scrollToLeg) {
+    if (tour.stops.length < 2) return;
+    el.dirBody.innerHTML = buildDirectionsHtml();
+    el.dirOverlay.classList.remove("hidden");
+    if (scrollToLeg != null) {
+      const target = el.dirBody.querySelector('[data-leg-block="' + scrollToLeg + '"]');
+      if (target) target.scrollIntoView({ block: "start" });
+    } else {
+      el.dirBody.scrollTop = 0;
+    }
+  }
+
+  function closeDirections() {
+    el.dirOverlay.classList.add("hidden");
+  }
+
+  function buildDirectionsHtml() {
+    if (!routeLegs) return '<p class="muted">Calculating route…</p>';
+    let html = "";
+    for (let i = 0; i < tour.stops.length - 1; i++) {
+      const from = tour.stops[i];
+      const to = tour.stops[i + 1];
+      const leg = routeLegs[i];
+      const meta = leg
+        ? fmtDist(leg.distance) + " · " + fmtDur(leg.duration) + (leg.straight ? " · estimate" : "")
+        : "";
+      html +=
+        '<div class="dir-leg" data-leg-block="' + i + '">' +
+        '<div class="dir-leg-head"><span class="dir-from">' + (i + 1) + "</span> " +
+        escapeHtml(from.name || "Stop") + ' <span class="muted">→</span> <span class="dir-to">' +
+        (i + 2) + "</span> " + escapeHtml(to.name || "Stop") +
+        '<span class="dir-meta">' + meta + "</span></div>";
+
+      if (leg && leg.steps && leg.steps.length) {
+        html += '<ol class="dir-steps">';
+        leg.steps.forEach((step) => {
+          const d = step.distance ? ' <span class="muted">(' + fmtDist(step.distance) + ")</span>" : "";
+          html += "<li>" + escapeHtml(stepText(step)) + d + "</li>";
+        });
+        html += "</ol>";
+      } else if (leg && leg.straight) {
+        html += '<p class="muted dir-note">Turn-by-turn unavailable (routing service unreachable) — showing direct distance.</p>';
+      }
+      html += "</div>";
+    }
+    return html;
+  }
+
+  // Turn an OSRM step into a short human instruction.
+  function stepText(step) {
+    const m = step.maneuver || {};
+    const type = m.type || "";
+    const mod = m.modifier ? " " + m.modifier : "";
+    const onto = step.name ? " onto " + step.name : "";
+    const on = step.name ? " on " + step.name : "";
+    switch (type) {
+      case "depart":
+        return "Head" + (m.modifier ? " " + m.modifier : "") + on;
+      case "turn":
+      case "end of road":
+        return "Turn" + mod + onto;
+      case "new name":
+        return "Continue" + onto;
+      case "continue":
+        return "Continue" + mod + on;
+      case "merge":
+        return "Merge" + mod + onto;
+      case "fork":
+        return "Keep" + mod + onto;
+      case "roundabout":
+      case "rotary":
+        return "Take the roundabout" + onto;
+      case "arrive":
+        return "Arrive at the stop";
+      default:
+        return (type ? type.charAt(0).toUpperCase() + type.slice(1) : "Continue") + mod + onto;
+    }
   }
 
   // ---- Preview mode ---------------------------------------------------------
@@ -647,9 +892,16 @@
   el.nextStop.addEventListener("click", () => gotoPreview(preview.index + 1));
   el.exitPreview.addEventListener("click", exitPreview);
 
+  el.directionsBtn.addEventListener("click", () => openDirections());
+  el.dirClose.addEventListener("click", closeDirections);
+  el.dirOverlay.addEventListener("click", (e) => {
+    if (e.target === el.dirOverlay) closeDirections();
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (!el.overlay.classList.contains("hidden")) closeEditor();
+      else if (!el.dirOverlay.classList.contains("hidden")) closeDirections();
       else if (preview.active) exitPreview();
       else if (addMode) setAddMode(false);
     }

@@ -177,6 +177,70 @@ input:focus, textarea:focus { outline: none; border-color: var(--primary); }
   text-align: center;
 }
 
+/* Route summary + walking connectors */
+.route-summary {
+  margin-top: 10px;
+  padding: 9px 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+.route-summary .muted { color: var(--muted); font-weight: 400; }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.leg-connector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 -2px 12px;
+  padding: 2px 0;
+}
+.leg-line {
+  width: 2px;
+  align-self: stretch;
+  min-height: 18px;
+  margin-left: 6px;
+  background: repeating-linear-gradient(var(--accent) 0 3px, transparent 3px 7px);
+}
+.leg-info {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  text-align: left;
+}
+button.leg-info:hover { background: var(--panel-2); color: var(--text); }
+.leg-info.muted { cursor: default; }
+
+/* Directions modal */
+.modal-lg { width: min(560px, 94vw); }
+.dir-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+.dir-leg { border-top: 1px solid var(--border); padding: 12px 2px; }
+.dir-leg:first-child { border-top: none; }
+.dir-leg-head { font-size: 14px; font-weight: 600; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.dir-from, .dir-to {
+  display: inline-grid; place-items: center;
+  width: 20px; height: 20px;
+  background: var(--primary); color: #fff;
+  border-radius: 50%; font-size: 12px;
+}
+.dir-meta { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--muted); }
+.dir-steps { margin: 8px 0 0; padding-left: 22px; color: var(--text); font-size: 13px; }
+.dir-steps li { margin: 3px 0; }
+.dir-steps .muted, .dir-note { color: var(--muted); }
+.dir-note { font-size: 12px; margin: 8px 0 0; }
+.muted { color: var(--muted); }
+
 .sidebar-footer { padding: 16px 18px; margin-top: auto; }
 
 /* ===== Map ===== */
